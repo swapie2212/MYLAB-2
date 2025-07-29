@@ -43,10 +43,35 @@ module "eks" {
   }
 }
 
+module "rds" {
+  source  = "terraform-aws-modules/rds/aws"
+  version = "5.0.0"
+
+  identifier = "devops-mysql"
+  engine            = "mysql"
+  engine_version    = "8.0"
+  instance_class    = "db.t3.micro"
+  allocated_storage = 20
+  name              = var.db_name
+  username          = var.db_username
+  password          = var.db_password
+
+  vpc_security_group_ids = [module.vpc.default_security_group_id]
+  db_subnet_group_name   = module.vpc.database_subnet_group
+  subnet_ids             = module.vpc.private_subnets
+
+  publicly_accessible = false
+  skip_final_snapshot = true
+}
+
 output "cluster_endpoint" {
   value = module.eks.cluster_endpoint
 }
 
 output "cluster_name" {
   value = module.eks.cluster_name
+}
+
+output "rds_endpoint" {
+  value = module.rds.db_instance_endpoint
 }
