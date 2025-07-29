@@ -1,0 +1,10 @@
+alertmanager:
+  enabled: false
+
+server:
+  global:
+    scrape_interval: 15s
+  extraScrapeConfigs: |
+    - job_name: 'kubernetes-nodes'
+      static_configs:
+        - targets: ['localhost:8080']

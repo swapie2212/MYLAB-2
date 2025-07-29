@@ -57,6 +57,17 @@ pipeline {
         stage('Deploy to EKS') {
             steps {
                 sh 'kubectl apply -f k8s/deployment.yaml'
+                sh 'kubectl apply -f k8s/service.yaml'
+            }
+        }
+
+        stage('Install Monitoring') {
+            steps {
+                sh 'helm repo add prometheus-community https://prometheus-community.github.io/helm-charts'
+                sh 'helm repo add grafana https://grafana.github.io/helm-charts'
+                sh 'helm repo update'
+                sh 'helm install prometheus prometheus-community/prometheus -f helm/prometheus-grafana/prometheus-values.yaml || echo "Prometheus already installed"'
+                sh 'helm install grafana grafana/grafana -f helm/prometheus-grafana/grafana-values.yaml || echo "Grafana already installed"'
             }
         }
     }

@@ -1,0 +1,105 @@
+---
+- name: Setup DevOps Tools on EC2
+  hosts: all
+  become: true
+  vars:
+    jenkins_repo_key: https://pkg.jenkins.io/debian-stable/jenkins.io.key
+    jenkins_repo: deb https://pkg.jenkins.io/debian-stable binary/
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install base packages
+      apt:
+        name:
+          - openjdk-17-jdk
+          - curl
+          - gnupg
+          - software-properties-common
+        state: present
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Add user to docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+
+    - name: Enable and start Docker
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+
+    - name: Add Jenkins GPG key
+      apt_key:
+        url: "{{ jenkins_repo_key }}"
+        state: present
+
+    - name: Add Jenkins APT repository
+      apt_repository:
+        repo: "{{ jenkins_repo }}"
+        state: present
+
+    - name: Install Jenkins
+      apt:
+        name: jenkins
+        state: present
+
+    - name: Enable and start Jenkins
+      systemd:
+        name: jenkins
+        enabled: yes
+        state: started
+
+    - name: Install SonarQube dependencies
+      apt:
+        name:
+          - unzip
+          - fontconfig
+        state: present
+
+    - name: Download and unzip SonarQube
+      unarchive:
+        src: https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-9.9.1.69595.zip
+        dest: /opt/
+        remote_src: yes
+
+    - name: Create symbolic link for SonarQube
+      file:
+        src: /opt/sonarqube-9.9.1.69595
+        dest: /opt/sonarqube
+        state: link
+
+    - name: Create SonarQube systemd service
+      copy:
+        dest: /etc/systemd/system/sonarqube.service
+        content: |
+          [Unit]
+          Description=SonarQube service
+          After=syslog.target network.target
+
+          [Service]
+          Type=simple
+          ExecStart=/opt/sonarqube/bin/linux-x86-64/sonar.sh start
+          ExecStop=/opt/sonarqube/bin/linux-x86-64/sonar.sh stop
+          User=ubuntu
+          Group=ubuntu
+          Restart=always
+          LimitNOFILE=65536
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd and start SonarQube
+      systemd:
+        daemon_reload: yes
+        name: sonarqube
+        enabled: yes
+        state: started
