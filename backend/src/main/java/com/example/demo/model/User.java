@@ -12,7 +12,6 @@ public class User {
     private String name;
     private String email;
 
-    // Getters & Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
