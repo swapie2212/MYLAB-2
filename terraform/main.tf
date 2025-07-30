@@ -28,11 +28,11 @@ module "vpc" {
   }
 
   name = "devops-vpc"
-  cidr = "172.31.0.0/16"
+  cidr = "10.0.0.0/16"
 
   azs             = ["${var.aws_region}a", "${var.aws_region}b"]
-  private_subnets = ["172.31.1.0/24", "172.31.2.0/24"]
-  public_subnets  = ["172.31.101.0/24", "172.31.102.0/24"]
+  private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
 
   enable_nat_gateway   = true
   single_nat_gateway   = true
@@ -73,7 +73,7 @@ module "eks" {
 
 module "rds" {
   source  = "terraform-aws-modules/rds/aws"
-  version = "5.0.0"
+  version = "6.1.0"
 
   providers = {
     aws = aws
@@ -83,7 +83,7 @@ module "rds" {
   engine            = "mysql"
   engine_version    = "8.0"
   instance_class    = "db.t3.micro"
-  allocated_storage = 20
+  allocated_storage =  20
   db_name           = var.db_name
   username          = var.db_username
   password          = var.db_password

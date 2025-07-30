@@ -15,7 +15,7 @@ output "eks_oidc_provider" {
 }
 
 output "eks_node_group_role_arn" {
-  value = module.eks.node_groups.default.iam_role_arn
+  value = module.eks.eks_managed_node_groups["default"].iam_role_arn
 }
 
 output "rds_instance_address" {
