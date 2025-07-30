@@ -4,8 +4,14 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 5.0.0"
+      version = "~> 5.30.0"
     }
+  }
+
+  backend "s3" {
+    bucket = "mylab-statefile-bucket"
+    key    = "eks/terraform.tfstate"
+    region = "ap-south-1"
   }
 }
 
@@ -16,6 +22,10 @@ provider "aws" {
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "5.1.1"
+
+  providers = {
+    aws = aws
+  }
 
   name = "devops-vpc"
   cidr = "172.31.0.0/16"
@@ -36,7 +46,11 @@ module "vpc" {
 
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "18.29.0" # Downgraded from 19.20.0 to avoid unsupported fields in provider
+  version = "19.20.0"
+
+  providers = {
+    aws = aws
+  }
 
   cluster_name    = var.cluster_name
   cluster_version = "1.27"
@@ -60,6 +74,10 @@ module "eks" {
 module "rds" {
   source  = "terraform-aws-modules/rds/aws"
   version = "5.0.0"
+
+  providers = {
+    aws = aws
+  }
 
   identifier        = "devops-mysql"
   engine            = "mysql"
