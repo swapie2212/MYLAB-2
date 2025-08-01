@@ -19,20 +19,19 @@ provider "aws" {
   region = var.aws_region
 }
 
+################################################################################
+# VPC MODULE
+################################################################################
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "5.1.1"
-
-  providers = {
-    aws = aws
-  }
 
   name = "devops-vpc"
   cidr = "10.0.0.0/16"
 
   azs             = ["${var.aws_region}a", "${var.aws_region}b"]
+  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
   private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
-  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]  
 
   enable_nat_gateway   = true
   single_nat_gateway   = true
@@ -44,19 +43,18 @@ module "vpc" {
   }
 }
 
+################################################################################
+# EKS MODULE
+################################################################################
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "19.20.0"
 
-  providers = {
-    aws = aws
-  }
-
   cluster_name    = var.cluster_name
-  cluster_version = "1.27"
+  cluster_version = "1.28"
 
-  subnet_ids = module.vpc.private_subnets
   vpc_id     = module.vpc.vpc_id
+  subnet_ids = module.vpc.private_subnets
 
   enable_irsa = true
 
@@ -65,63 +63,49 @@ module "eks" {
       desired_capacity = 2
       max_capacity     = 3
       min_capacity     = 1
-
-      instance_types = ["t3.medium"]
+      instance_types   = ["t3.medium"]
     }
   }
 }
 
-module "rds" {
-  source  = "terraform-aws-modules/rds/aws"
-  version = "6.1.0"
+################################################################################
+# SECURITY GROUPS
+################################################################################
 
-  providers = {
-    aws = aws
-  }
-
-  identifier        = "devops-mysql"
-  engine            = "mysql"
-  engine_version    = "8.0"
-  major_engine_version = "8.0"
-  family               = "mysql8.0"  # 🔥 REQUIRED
-  instance_class    = "db.t3.micro"
-  allocated_storage =  20
-  db_name           = var.db_name
-  username          = var.db_username
-  password          = var.db_password
-
-  vpc_security_group_ids = [module.vpc.default_security_group_id]
-  db_subnet_group_name   = module.vpc.database_subnet_group
-  subnet_ids             = module.vpc.private_subnets
-
-  publicly_accessible = false
-  skip_final_snapshot = true
-}
-
-resource "aws_instance" "devops_host" {
-  ami                         = "ami-0c02fb55956c7d316"
-  instance_type               = "t3.large"
-  key_name                    = var.key_name
-  vpc_security_group_ids      = [aws_security_group.devops_sg.id]
-  subnet_id                   = aws_subnet.public_1.id
-  associate_public_ip_address = true
-
-  root_block_device {
-    volume_size = 30
-    volume_type = "gp3"
-  }
-
-  tags = {
-    Name = "DevOps-Host"
-  }
-}
-
-resource "aws_security_group" "devops_sg" {
-  name        = "devops-sg"
-  description = "Allow SSH and HTTP"
+# RDS Security Group
+resource "aws_security_group" "rds_sg" {
+  name        = "rds-security-group"
+  description = "Allow MySQL access within VPC"
   vpc_id      = module.vpc.vpc_id
 
   ingress {
+    description = "MySQL from VPC"
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "rds-sg"
+  }
+}
+
+# DevOps Host Security Group
+resource "aws_security_group" "devops_sg" {
+  name        = "devops-sg"
+  description = "Allow SSH and Web Traffic"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    description = "SSH"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
@@ -129,6 +113,7 @@ resource "aws_security_group" "devops_sg" {
   }
 
   ingress {
+    description = "HTTP"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
@@ -136,6 +121,7 @@ resource "aws_security_group" "devops_sg" {
   }
 
   ingress {
+    description = "App Port"
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
@@ -148,19 +134,71 @@ resource "aws_security_group" "devops_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-}
-
-resource "aws_subnet" "public_1" {
-  vpc_id                  = module.vpc.vpc_id
-  cidr_block              = "10.0.103.0/24"
-  availability_zone       = "${var.aws_region}a"
-  map_public_ip_on_launch = true
 
   tags = {
-    Name = "DevOps_Node_Subnet"
+    Name = "devops-sg"
   }
 }
 
+################################################################################
+# DEVOPS HOST (EC2)
+################################################################################
+resource "aws_instance" "devops_host" {
+  ami                         = "ami-03f4878755434977f"  # Amazon Linux 2023 in ap-south-1
+  instance_type               = "t3.large"
+  key_name                    = var.key_name
+  subnet_id                   = module.vpc.public_subnets[0]
+  vpc_security_group_ids      = [aws_security_group.devops_sg.id]
+  associate_public_ip_address = true
+
+  root_block_device {
+    volume_size = 30
+    volume_type = "gp3"
+  }
+
+  tags = {
+    Name = "DevOps-Host"
+  }
+
+  depends_on = [module.vpc]
+}
+
+################################################################################
+# RDS MODULE
+################################################################################
+module "rds" {
+  source  = "terraform-aws-modules/rds/aws"
+  version = "6.1.0"
+
+  identifier             = "devops-mysql"
+  engine                 = "mysql"
+  engine_version         = "8.0"
+  major_engine_version   = "8.0"
+  family                 = "mysql8.0"
+  instance_class         = "db.t3.micro"
+  allocated_storage      = 20
+
+  db_name                = var.db_name
+  username               = var.db_username
+  password               = var.db_password
+
+  vpc_security_group_ids = [aws_security_group.rds_sg.id]
+  db_subnet_group_name   = module.vpc.database_subnet_group
+  subnet_ids             = module.vpc.private_subnets
+
+  publicly_accessible    = false
+  skip_final_snapshot    = true
+
+  tags = {
+    Name = "devops-mysql-db"
+  }
+
+  depends_on = [module.vpc]
+}
+
+################################################################################
+# OUTPUTS
+################################################################################
 output "cluster_endpoint" {
   value = module.eks.cluster_endpoint
 }

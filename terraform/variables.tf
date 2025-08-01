@@ -15,7 +15,7 @@ variable "db_username" {
 }
 
 variable "db_password" {
-  default = "rootpassword"  # Ideally use sensitive=true and store in Vault or AWS Secrets Manager
+  default = "rootpassword" # Ideally use sensitive=true and store in Vault or AWS Secrets Manager
 }
 
 variable "key_name" {
