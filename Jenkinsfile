@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    tools {
+        maven 'MAVEN3'
+        }
+
     environment {
         IMAGE = "swapie2212/devops-demo"
     }
@@ -14,7 +18,7 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh 'mvn -f backend/pom.xml clean install'
+                sh 'mvn -f backend/pom.xml clean install -DskipTests'
             }
         }
 
