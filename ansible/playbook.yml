@@ -57,6 +57,17 @@
         name: jenkins
         enabled: yes
         state: started
+    
+    - name: Add jenkins user to docker group
+      user:
+        name: jenkins
+        groups: docker
+        append: yes
+    
+    - name: Restart Jenkins to apply group membership changes
+      systemd:
+        name: jenkins
+        state: restarted
 
     - name: Install SonarQube dependencies
       apt:

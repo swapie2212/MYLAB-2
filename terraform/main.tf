@@ -86,7 +86,7 @@ resource "aws_security_group" "rds_sg" {
     cidr_blocks = ["10.0.0.0/16"]
   }
 
-  egress {
+  egress {  
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -163,6 +163,20 @@ resource "aws_instance" "devops_host" {
   depends_on = [module.vpc]
 }
 
+
+################################################################################
+# RDS Subnet Group
+################################################################################
+
+resource "aws_db_subnet_group" "rds_subnet_group" {
+  name       = "devops-rds-subnet-group"
+  subnet_ids = module.vpc.private_subnets
+
+  tags = {
+    Name = "devops-rds-subnet-group"
+  }
+}
+
 ################################################################################
 # RDS MODULE
 ################################################################################
@@ -181,9 +195,10 @@ module "rds" {
   db_name                = var.db_name
   username               = var.db_username
   password               = var.db_password
+  port                   = 3306
 
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
-  db_subnet_group_name   = module.vpc.database_subnet_group
+  db_subnet_group_name   = aws_db_subnet_group.rds_subnet_group.name
   subnet_ids             = module.vpc.private_subnets
 
   publicly_accessible    = false
@@ -210,3 +225,9 @@ output "cluster_name" {
 output "rds_endpoint" {
   value = module.rds.db_instance_endpoint
 }
+
+output "vpc_id" {
+  value = module.vpc.vpc_id
+}
+
+
