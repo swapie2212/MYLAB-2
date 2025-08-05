@@ -37,6 +37,19 @@
         enabled: yes
         state: started
 
+    - name: Create Docker CLI plugin directory
+      file:
+        path: /usr/local/lib/docker/cli-plugins
+        state: directory
+        mode: '0755'
+
+    - name: Download Docker Buildx plugin
+      get_url:
+        url: https://github.com/docker/buildx/releases/latest/download/buildx-linux-amd64
+        dest: /usr/local/lib/docker/cli-plugins/docker-buildx
+        mode: '0755'
+
+
     - name: Add Jenkins GPG key
       apt_key:
         url: "{{ jenkins_repo_key }}"
@@ -114,3 +127,13 @@
         name: sonarqube
         enabled: yes
         state: started
+
+    - name: Install Trivy
+      shell: |
+        apt install -y wget apt-transport-https gnupg lsb-release
+        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | apt-key add -
+        echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/trivy.list
+        apt update
+        apt install -y trivy
+      args:
+        executable: /bin/bash

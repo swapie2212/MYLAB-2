@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        IMAGE = "yourdockerhubusername/devops-demo"
+        IMAGE = "swapie2212/devops-demo"
     }
 
     stages {
@@ -14,14 +14,14 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh 'mvn clean install'
+                sh 'mvn -f backend/pom.xml clean install'
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
-                    sh 'mvn sonar:sonar'
+                    sh 'mvn -f backend/pom.xml sonar:sonar'
                 }
             }
         }
