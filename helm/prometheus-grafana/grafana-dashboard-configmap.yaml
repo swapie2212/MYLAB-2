@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: node-exporter-dashboard
+  labels:
+    grafana_dashboard: "1"   # ✅ label must match values.yaml sidecar config
+  namespace: default         # ✅ ensure this matches where Grafana is installed
+data:
+  node-exporter-dashboard.json: |
+    {
+      "__inputs": [],
+      "__requires": [],
+      "title": "Node Exporter Sample Dashboard",
+      "panels": [
+        {
+          "type": "graph",
+          "title": "CPU Usage",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "rate(node_cpu_seconds_total[5m])",
+              "legendFormat": "{{cpu}}",
+              "refId": "A"
+            }
+          ]
+        }
+      ],
+      "schemaVersion": 16,
+      "version": 1,
+      "refresh": "10s"
+    }

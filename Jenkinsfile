@@ -60,8 +60,8 @@ pipeline {
         stage('Publish to JFrog') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'jfrog-creds', usernameVariable: 'ART_USER', passwordVariable: 'ART_PASS')]) {
-                    sh 'curl -u $ART_USER:$ART_PASS -T target/demo-0.0.1-SNAPSHOT.jar "https://your-jfrog-url/artifactory/libs-release-local/demo-0.0.1-SNAPSHOT.jar"'
-                }
+                    sh 'curl -u $ART_USER:$ART_PASS -T backend/target/demo-0.0.1-SNAPSHOT.jar "https://swapie2212.jfrog.io/artifactory/devops-generic-local/backend/demo-0.0.1-SNAPSHOT.jar"'
+                    }
             }
         }
 
@@ -92,11 +92,17 @@ pipeline {
 
         stage('Install Monitoring') {
             steps {
+                // Add Helm repos and update
                 sh 'helm repo add prometheus-community https://prometheus-community.github.io/helm-charts'
                 sh 'helm repo add grafana https://grafana.github.io/helm-charts'
                 sh 'helm repo update'
+
+                // Install Prometheus and Grafana with values
                 sh 'helm upgrade --install prometheus prometheus-community/prometheus -f helm/prometheus-grafana/prometheus-values.yaml'
                 sh 'helm upgrade --install grafana grafana/grafana -f helm/prometheus-grafana/grafana-values.yaml'
+
+                // Deploy Grafana dashboard ConfigMap after Grafana is installed
+                sh 'kubectl apply -f helm/prometheus-grafana/grafana-dashboard-configmap.yaml'
             }
         }
     }

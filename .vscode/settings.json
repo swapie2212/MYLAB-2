@@ -1,3 +1,4 @@
 {
-    "java.compile.nullAnalysis.mode": "automatic"
+    "java.compile.nullAnalysis.mode": "automatic",
+    "ansible.python.interpreterPath": "c:\\Users\\Swapnil\\AppData\\Local\\Programs\\Python\\Python313\\python.exe"
 }

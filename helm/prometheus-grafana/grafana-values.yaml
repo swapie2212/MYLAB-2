@@ -3,3 +3,9 @@ adminPassword: admin
 service:
   type: LoadBalancer
   port: 3000
+
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    folder: /var/lib/grafana/dashboards
