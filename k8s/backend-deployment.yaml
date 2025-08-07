@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: devops-demo-deployment
+  name: devops-backend-deployment
   labels:
-    app: devops-demo
+    app: devops-backend
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: devops-demo
+      app: devops-backend
   template:
     metadata:
       labels:
-        app: devops-demo
+        app: devops-backend
     spec:
       containers:
-        - name: devops-demo
+        - name: devops-backend
           image: swapie2212/devops-demo:latest
           ports:
             - containerPort: 8080

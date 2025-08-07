@@ -6,7 +6,8 @@ pipeline {
     }
 
     environment {
-        IMAGE = "swapie2212/devops-demo"
+        IMAGE_BACK = "swapie2212/devops-backend"
+        IMAGE_FRONT = "swapie2212/devops-frontend"
         EKS_CLUSTER_NAME = "mylab-eks"
         AWS_REGION = "ap-south-1"
     }
@@ -34,13 +35,15 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t $IMAGE:latest .'
+                sh 'docker build -t $IMAGE_BACK:latest -f backend/Dockerfile backend/'
+                sh 'docker build -t $IMAGE_FRONT:latest -f frontend/Dockerfile frontend/'
             }
         }
 
         stage('Trivy Scan') {
             steps {
-                sh 'trivy image $IMAGE:latest'
+                sh 'trivy image $IMAGE_BACK:latest'
+                sh 'trivy image $IMAGE_FRONT:latest'
             }
         }
 
@@ -48,7 +51,8 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
                     sh 'echo $PASS | docker login -u $USER --password-stdin'
-                    sh 'docker push $IMAGE:latest'
+                    sh 'docker push $IMAGE_BACK:latest'
+                    sh 'docker push $IMAGE_FRONT:latest'
                 }
             }
         }
@@ -71,8 +75,18 @@ pipeline {
 
         stage('Deploy to EKS') {
             steps {
-                sh 'kubectl apply -f k8s/deployment.yaml'
+                script {
+                // Apply MySQL Deployment + Service
+                sh 'kubectl apply -f k8s/mysql-deployment.yaml'
+
+                // Wait until MySQL pod is ready (ensures backend doesn't fail to connect)
+                sh 'kubectl wait --for=condition=ready pod -l app=mysql --timeout=60s'
+
+                // Apply Backend and Frontend Deployments + Service
+                sh 'kubectl apply -f k8s/backend-deployment.yaml'
+                sh 'kubectl apply -f k8s/frontend-deployment.yaml'
                 sh 'kubectl apply -f k8s/service.yaml'
+                }
             }
         }
 
@@ -87,31 +101,3 @@ pipeline {
         }
     }
 }
-pipeline {
-    agent any
-
-    stages {
-        stage('Trigger Jenkins Job') {
-            steps {
-                ansiblePlaybook(
-                    playbook: 'ansible/trigger-jenkins-job.yml',
-                    inventory: 'ansible/inventory.ini',
-                    extras: '-e "job_name=my-pipeline-job"'
-                )
-            }
-        }
-    }
-}
-
-    post {
-        always {
-            junit 'target/surefire-reports/*.xml'
-            archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
-        }
-        success {
-            echo 'Pipeline completed successfully!'
-        }
-        failure {
-            echo 'Pipeline failed!'
-        }
-    }

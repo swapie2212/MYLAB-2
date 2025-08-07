@@ -1,12 +1,29 @@
+# Backend Service - exposed on 8081 externally
 apiVersion: v1
 kind: Service
 metadata:
-  name: devops-demo-service
+  name: devops-backend-service
 spec:
   selector:
-    app: devops-demo
+    app: devops-backend
+  ports:
+    - protocol: TCP
+      port: 8081         # External port (no conflict with Jenkins)
+      targetPort: 8080   # Internal container port
+  type: LoadBalancer
+
+---
+
+# Frontend Service - exposed on 80 (default web port)
+apiVersion: v1
+kind: Service
+metadata:
+  name: devops-frontend-service
+spec:
+  selector:
+    app: devops-frontend
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 8080
+      targetPort: 80
   type: LoadBalancer
