@@ -3,10 +3,12 @@ pipeline {
 
     tools {
         maven 'MAVEN3'
-        }
+    }
 
     environment {
         IMAGE = "swapie2212/devops-demo"
+        EKS_CLUSTER_NAME = "mylab-eks"
+        AWS_REGION = "ap-south-1"
     }
 
     stages {
@@ -46,7 +48,6 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
                     sh 'echo $PASS | docker login -u $USER --password-stdin'
-                    sh 'docker tag $IMAGE:latest $IMAGE:latest'
                     sh 'docker push $IMAGE:latest'
                 }
             }
@@ -54,7 +55,17 @@ pipeline {
 
         stage('Publish to JFrog') {
             steps {
-                sh 'curl -u $ART_USER:$ART_PASS -T target/demo-0.0.1-SNAPSHOT.jar "https://your-jfrog-url/artifactory/libs-release-local/demo-0.0.1-SNAPSHOT.jar"'
+                withCredentials([usernamePassword(credentialsId: 'jfrog-creds', usernameVariable: 'ART_USER', passwordVariable: 'ART_PASS')]) {
+                    sh 'curl -u $ART_USER:$ART_PASS -T target/demo-0.0.1-SNAPSHOT.jar "https://your-jfrog-url/artifactory/libs-release-local/demo-0.0.1-SNAPSHOT.jar"'
+                }
+            }
+        }
+
+        stage('Configure kubectl') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
+                    sh 'aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region $AWS_REGION'
+                }
             }
         }
 
@@ -70,9 +81,37 @@ pipeline {
                 sh 'helm repo add prometheus-community https://prometheus-community.github.io/helm-charts'
                 sh 'helm repo add grafana https://grafana.github.io/helm-charts'
                 sh 'helm repo update'
-                sh 'helm install prometheus prometheus-community/prometheus -f helm/prometheus-grafana/prometheus-values.yaml || echo "Prometheus already installed"'
-                sh 'helm install grafana grafana/grafana -f helm/prometheus-grafana/grafana-values.yaml || echo "Grafana already installed"'
+                sh 'helm upgrade --install prometheus prometheus-community/prometheus -f helm/prometheus-grafana/prometheus-values.yaml'
+                sh 'helm upgrade --install grafana grafana/grafana -f helm/prometheus-grafana/grafana-values.yaml'
             }
         }
     }
 }
+pipeline {
+    agent any
+
+    stages {
+        stage('Trigger Jenkins Job') {
+            steps {
+                ansiblePlaybook(
+                    playbook: 'ansible/trigger-jenkins-job.yml',
+                    inventory: 'ansible/inventory.ini',
+                    extras: '-e "job_name=my-pipeline-job"'
+                )
+            }
+        }
+    }
+}
+
+    post {
+        always {
+            junit 'target/surefire-reports/*.xml'
+            archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+        }
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed!'
+        }
+    }
