@@ -158,6 +158,7 @@
           pipeline-stage-view \
           workflow-job \
           sonar \
+          aws-credentials \
           -deploy
       environment:
         JENKINS_HOME: /var/lib/jenkins
