@@ -1,13 +1,11 @@
-# filepath: f:\Practise\MYLAB-2\frontend\Dockerfile
-# Build stage
-FROM node:18 AS build
-WORKDIR /app
-COPY . .
-RUN npm install
-RUN npm run build
-
-# Production stage
+# Use Nginx as the base image
 FROM nginx:alpine
-COPY --from=build /app/build /usr/share/nginx/html
+
+# Copy your HTML files to the default Nginx public directory
+COPY index.html /usr/share/nginx/html/index.html
+
+# Expose port 80
 EXPOSE 80
+
+# Start Nginx
 CMD ["nginx", "-g", "daemon off;"]
