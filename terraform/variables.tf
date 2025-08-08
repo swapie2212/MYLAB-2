@@ -18,7 +18,7 @@ variable "db_password" {
   default = "rootpassword" # Ideally use sensitive=true and store in Vault or AWS Secrets Manager
 }
 
-variable "key_name" {
+variable "DevOps" {
   description = "Name of the SSH key pair"
   default     = "ec2-instance"
 }
