@@ -15,7 +15,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git url: 'https://github.com/swapie2212/MYLAB-2.git', branch: 'feature'
+                git url: 'https://github.com/swapie2212/MYLAB-2.git', branch: 'pipeline'
             }
         }
 
@@ -27,8 +27,10 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('SonarQube') {
-                    sh 'mvn -f backend/pom.xml sonar:sonar'
+                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_LOGIN')]) {
+                    withSonarQubeEnv('SonarQube') {
+                        sh "mvn -f backend/pom.xml sonar:sonar -Dsonar.login=${SONAR_LOGIN}"
+                    }
                 }
             }
         }
