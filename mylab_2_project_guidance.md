@@ -58,6 +58,7 @@ After Terraform finishes:
 #### ii. Copy PEM File
 
 Place your `.pem` file in your WSL machine under `~/.ssh/`.
+chmod 400 ~/.ssh/mylab-key.pem
 
 #### iii. Run the Playbook
 
@@ -71,6 +72,12 @@ ansible-playbook -i inventory.ini playbook.yml
 > ⚠️ Note: On first run, Jenkins plugin installation may be skipped due to missing credentials. Manually login to Jenkins using `admin` as username and password, then re-run the playbook.
 
 ---
+
+
+sudo sysctl -w vm.max_map_count=262144
+echo 'vm.max_map_count=262144' | sudo tee -a /etc/sysctl.conf
+docker restart sonarqube
+
 
 ### 3. Manual Jenkins Configuration
 
@@ -158,3 +165,20 @@ For any questions or configuration issues, feel free to review log outputs or va
 
 Happy DevOps-ing! 🚀
 
+
+
+1. 🔧 Make EKS Cluster Endpoint Public (temporarily for testing)
+
+In the AWS Console:
+
+    Go to EKS > Your Cluster > Networking
+
+    Look for API Server Endpoint Access
+
+    Select:
+
+        ✅ Public Access
+
+        ✅ Allow access from your Jenkins EC2 IP/CIDR
+
+    Important: This opens your EKS control plane to the internet — restrict access to only your Jenkins IP range (not 0.0.0.0/0).

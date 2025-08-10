@@ -8,7 +8,7 @@ pipeline {
     environment {
         IMAGE_BACK = "swapie2212/devops-backend"
         IMAGE_FRONT = "swapie2212/devops-frontend"
-        EKS_CLUSTER_NAME = "mylab-eks"
+        EKS_CLUSTER_NAME = "devops-demo-eks"
         AWS_REGION = "ap-south-1"
     }
 
