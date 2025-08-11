@@ -9,7 +9,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket = "mylab-statefile-bucket"
+    bucket = "webinax"
     key    = "eks/terraform.tfstate"
     region = "ap-south-1"
   }
@@ -57,6 +57,10 @@ module "eks" {
   subnet_ids = module.vpc.private_subnets
 
   enable_irsa = true
+
+  cluster_endpoint_private_access = true
+  cluster_endpoint_public_access  = true
+  cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"]
 
   eks_managed_node_groups = {
     default = {
