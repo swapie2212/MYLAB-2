@@ -118,32 +118,6 @@
       tags: jenkins
 
     # -------------------------------
-    # PostgreSQL Setup for SonarQube
-    # -------------------------------
-    - name: Install PostgreSQL
-      apt:
-        name: postgresql
-        state: present
-      tags: postgres
-
-    - name: Ensure PostgreSQL is running
-      service:
-        name: postgresql
-        enabled: yes
-        state: started
-      tags: postgres
-
-    - name: Create SonarQube database and user
-      become: true
-      shell: |
-        sudo -u postgres psql -c "CREATE DATABASE sonarqube;"
-        sudo -u postgres psql -c "CREATE USER sonar WITH ENCRYPTED PASSWORD 'sonar';"
-        sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE sonarqube TO sonar;"
-      args:
-        executable: /bin/bash
-      tags: postgres
-
-    # -------------------------------
     # Jenkins Plugin Install
     # -------------------------------
     - name: Install Jenkins plugins
@@ -165,52 +139,46 @@
       ignore_errors: true  # Jenkins may not be ready
       tags: jenkins
 
-    # -------------------------------
-    # SonarQube Setup
-    # -------------------------------
-    - name: Download and unzip SonarQube
-      unarchive:
-        src: "https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-{{ sonar_version }}.zip"
-        dest: /opt/
-        remote_src: yes
+    # ------------------------------------
+    # SonarQube & PostgreSQL via Docker
+    # ------------------------------------
+    - name: Create Docker network for SonarQube
+      shell: docker network create sonarnet || true
+      tags: sonarqube
+    
+    - name: Run PostgreSQL container for SonarQube
+      shell: |
+        docker rm -f sonardb || true
+        docker run -d \
+          --name sonardb \
+          --network sonarnet \
+          -e POSTGRES_USER={{ sonar_user }} \
+          -e POSTGRES_PASSWORD={{ sonar_pass }} \
+          -e POSTGRES_DB={{ sonar_db }} \
+          postgres:13
       tags: sonarqube
 
-    - name: Create symbolic link for SonarQube
-      file:
-        src: "/opt/sonarqube-{{ sonar_version }}"
-        dest: /opt/sonarqube
-        state: link
+    - name: Run SonarQube container
+      shell: |
+        docker rm -f sonarqube || true
+        docker run -d \
+          --name sonarqube \
+          --network sonarnet \
+          -p 9000:9000 \
+          -e SONAR_JDBC_URL=jdbc:postgresql://sonardb:5432/{{ sonar_db }} \
+          -e SONAR_JDBC_USERNAME={{ sonar_user }} \
+          -e SONAR_JDBC_PASSWORD={{ sonar_pass }} \
+          sonarqube:9.9.1-community
       tags: sonarqube
 
-    - name: Create SonarQube systemd service
-      copy:
-        dest: /etc/systemd/system/sonarqube.service
-        content: |
-          [Unit]
-          Description=SonarQube service
-          After=syslog.target network.target
-
-          [Service]
-          Type=simple
-          ExecStart=/opt/sonarqube/bin/linux-x86-64/sonar.sh start
-          ExecStop=/opt/sonarqube/bin/linux-x86-64/sonar.sh stop
-          User=ubuntu
-          Group=ubuntu
-          Restart=always
-          LimitNOFILE=65536
-
-          [Install]
-          WantedBy=multi-user.target
-      tags: sonarqube
-
-    - name: Reload and start SonarQube service
-      systemd:
-        daemon_reload: yes
-        name: sonarqube
-        enabled: yes
+    - name: Wait for SonarQube to be ready
+      wait_for:
+        port: 9000
+        delay: 30
+        timeout: 300
         state: started
       tags: sonarqube
-
+      
     # -------------------------------
     # Trivy Installation
     # -------------------------------
