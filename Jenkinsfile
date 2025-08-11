@@ -8,7 +8,7 @@ pipeline {
     environment {
         IMAGE_BACK = "swapie2212/devops-backend"
         IMAGE_FRONT = "swapie2212/devops-frontend"
-        EKS_CLUSTER_NAME = "mylab-eks"
+        EKS_CLUSTER_NAME = "devops-demo-eks"
         AWS_REGION = "ap-south-1"
     }
 
@@ -27,8 +27,10 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('SonarQube') {
-                    sh 'mvn -f backend/pom.xml sonar:sonar'
+                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_LOGIN')]) {
+                    withSonarQubeEnv('SonarQube') {
+                        sh "mvn -f backend/pom.xml sonar:sonar -Dsonar.login=${SONAR_LOGIN}"
+                    }
                 }
             }
         }
@@ -75,17 +77,14 @@ pipeline {
 
         stage('Deploy to EKS') {
             steps {
-                script {
-                // Apply MySQL Deployment + Service
-                sh 'kubectl apply -f k8s/mysql-deployment.yaml'
-
-                // Wait until MySQL pod is ready (ensures backend doesn't fail to connect)
-                sh 'kubectl wait --for=condition=ready pod -l app=mysql --timeout=60s'
-
-                // Apply Backend and Frontend Deployments + Service
-                sh 'kubectl apply -f k8s/backend-deployment.yaml'
-                sh 'kubectl apply -f k8s/frontend-deployment.yaml'
-                sh 'kubectl apply -f k8s/service.yaml'
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
+                    script {
+                        sh 'kubectl apply -f k8s/mysql-deployment.yaml'
+                        sh 'kubectl wait --for=condition=ready pod -l app=mysql --timeout=60s'
+                        sh 'kubectl apply -f k8s/backend-deployment.yaml'
+                        sh 'kubectl apply -f k8s/frontend-deployment.yaml'
+                        sh 'kubectl apply -f k8s/service.yaml'
+                    }
                 }
             }
         }
